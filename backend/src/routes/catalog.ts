@@ -19,8 +19,8 @@ catalogRouter.get('/collections', async (_req, res) => {
 catalogRouter.get('/collections/:id/count', async (req, res) => {
   try {
     const collectionId = parseInt(req.params.id, 10);
-    const count = await getCollectionProductCount(collectionId);
-    res.json({ count });
+    const { count, image } = await getCollectionProductCount(collectionId);
+    res.json({ count, image });
   } catch (error) {
     console.error('Error fetching count:', error);
     res.status(500).json({ error: 'Error al obtener conteo' });

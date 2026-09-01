@@ -1,6 +1,11 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import type { ShopifyProduct, ShopifyCollection } from '../services/shopify';
 
-const LOGO_URL = 'https://cdn.shopify.com/s/files/1/0613/1053/3857/files/Logo-infinito.webp?v=1772874424';
+// Logo con fondo transparente embebido como data URI (el webp de Shopify tiene fondo blanco)
+const LOGO_URL = `data:image/png;base64,${readFileSync(
+  join(__dirname, '../../assets/logo-infinito.png')
+).toString('base64')}`;
 
 function escapeHtml(str: string): string {
   return str
@@ -70,8 +75,17 @@ function buildOptionsHtml(product: ShopifyProduct): string {
   return `<div class="product-options">${lines.join('')}</div>`;
 }
 
+// Shopify CDN: ?width= redimensiona server-side (evita PDFs gigantes) y
+// format=pjpg convierte a JPEG aplanando transparencias a blanco — muchas fotos
+// de producto son PNG con el fondo removido a medias y dejan manchas blancas
+function resizeShopifyImage(src: string, width: number): string {
+  if (!src) return src;
+  const sep = src.includes('?') ? '&' : '?';
+  return `${src}${sep}width=${width}&format=pjpg`;
+}
+
 function productCard(product: ShopifyProduct): string {
-  const image = product.images?.[0]?.src || '';
+  const image = resizeShopifyImage(product.images?.[0]?.src || '', 900);
   const { price, compareAt } = getBestPrice(product);
   const formattedPrice = formatPrice(price);
   const formattedCompare = formatPrice(compareAt);
@@ -80,7 +94,7 @@ function productCard(product: ShopifyProduct): string {
     <div class="product-card">
       <div class="product-image-container">
         ${image
-          ? `<img src="${image}" alt="${escapeHtml(product.title)}" class="product-image" />`
+          ? `<div class="product-image" style="background-image: url('${image}')" role="img" aria-label="${escapeHtml(product.title)}"></div>`
           : `<div class="product-image-placeholder">
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ddd" stroke-width="1">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -126,6 +140,11 @@ export function buildCatalogHtml(
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&display=swap');
 
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -143,7 +162,7 @@ export function buildCatalogHtml(
     /* ─── COVER PAGE (white, minimal, soft shapes) ─── */
     .cover {
       width: 100%;
-      height: 100vh;
+      height: 296.5mm;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -242,7 +261,7 @@ export function buildCatalogHtml(
     /* ─── PRODUCT PAGES ─── */
     .page {
       width: 100%;
-      height: 100vh;
+      height: 296.5mm;
       padding: 40px 44px;
       display: flex;
       flex-direction: column;
@@ -277,10 +296,11 @@ export function buildCatalogHtml(
     /* ─── 2x2 GRID ─── */
     .products-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
       gap: 24px;
       flex: 1;
+      min-height: 0;
       padding-top: 24px;
     }
 
@@ -292,6 +312,8 @@ export function buildCatalogHtml(
       border: 1px solid #eeeeee;
       display: flex;
       flex-direction: column;
+      break-inside: avoid;
+      min-height: 0;
     }
 
     .product-image-container {
@@ -299,16 +321,20 @@ export function buildCatalogHtml(
       flex: 1;
       min-height: 0;
       overflow: hidden;
-      background: #f5f5f5;
+      background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
+    /* background-image en vez de <img> con object-fit: Chromium ignora
+       object-fit al imprimir a PDF y estira la imagen (deformación) */
     .product-image {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
     }
 
     .product-image-placeholder {

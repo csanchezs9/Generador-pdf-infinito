@@ -67,11 +67,14 @@ export async function getCollections(): Promise<ShopifyCollection[]> {
   return [...custom.custom_collections, ...smart.smart_collections];
 }
 
-export async function getCollectionProductCount(collectionId: number): Promise<number> {
-  const data = await shopifyFetch<{ products: { id: number }[] }>(
-    `/collections/${collectionId}/products.json?limit=250&fields=id`
+export async function getCollectionProductCount(
+  collectionId: number
+): Promise<{ count: number; image: string | null }> {
+  const data = await shopifyFetch<{ products: { id: number; image?: { src: string } | null }[] }>(
+    `/collections/${collectionId}/products.json?limit=250&fields=id,image`
   );
-  return data.products.length;
+  const withImage = data.products.find(p => p.image?.src);
+  return { count: data.products.length, image: withImage?.image?.src ?? null };
 }
 
 export async function getCollectionProducts(collectionId: number): Promise<ShopifyProduct[]> {

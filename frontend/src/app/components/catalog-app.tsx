@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const LOGO_URL = "/logo-infinito.png";
 
 interface Collection {
   id: number;
@@ -109,6 +110,7 @@ export function CatalogApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [productCounts, setProductCounts] = useState<Record<number, number>>({});
+  const [fallbackImages, setFallbackImages] = useState<Record<number, string>>({});
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -137,6 +139,9 @@ export function CatalogApp() {
         .then((r) => r.json())
         .then((data) => {
           setProductCounts((prev) => ({ ...prev, [col.id]: data.count }));
+          if (data.image) {
+            setFallbackImages((prev) => ({ ...prev, [col.id]: data.image }));
+          }
         })
         .catch(() => {
           setProductCounts((prev) => ({ ...prev, [col.id]: -2 }));
@@ -200,7 +205,7 @@ export function CatalogApp() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-white/50">
+        <div className="flex items-center gap-3 text-neutral-400">
           <Spinner />
           <span>Cargando colecciones...</span>
         </div>
@@ -209,62 +214,71 @@ export function CatalogApp() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center">
-      {/* Island Navbar */}
-      <div className="mt-12 mb-16">
-        <nav className="relative flex items-center gap-1 bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] rounded-2xl px-2 py-2 shadow-2xl shadow-black/20">
-          {categories.map((cat) => (
-            <NavItem
-              key={cat.label}
-              category={cat}
-              isActive={activeCategory === cat.label}
-              selected={selected}
-              productCounts={productCounts}
-              onMouseEnter={() => handleMouseEnter(cat.label)}
-              onMouseLeave={handleMouseLeave}
-              onSelect={handleSelect}
-            />
-          ))}
-        </nav>
-      </div>
-
-      {error && (
-        <div className="mb-6 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm max-w-md">
-          {error}
+    <div className="flex flex-col items-center gap-16 w-full">
+      {/* Island Navbar with logo */}
+      <nav className="relative flex items-center gap-1 bg-white border border-black/[0.08] rounded-2xl px-2 py-2 shadow-xl shadow-black/[0.06]">
+        {/* Logo */}
+        <div className="px-3 pr-4 flex items-center border-r border-black/[0.08] mr-1">
+          <img
+            src={LOGO_URL}
+            alt="Infinito Piercing"
+            className="h-9 w-auto object-contain"
+          />
         </div>
-      )}
+
+        {categories.map((cat) => (
+          <NavItem
+            key={cat.label}
+            category={cat}
+            isActive={activeCategory === cat.label}
+            selected={selected}
+            productCounts={productCounts}
+            fallbackImages={fallbackImages}
+            onMouseEnter={() => handleMouseEnter(cat.label)}
+            onMouseLeave={handleMouseLeave}
+            onSelect={handleSelect}
+          />
+        ))}
+      </nav>
 
       {/* Selected collection + generate */}
       <div className="flex flex-col items-center gap-6">
+        {error && (
+          <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm max-w-md text-center">
+            {error}
+          </div>
+        )}
+
         {selected ? (
           <>
-            <div className="flex items-center gap-4 bg-white/[0.03] border border-white/[0.08] rounded-2xl px-6 py-4">
-              {selected.image?.src && (
-                <div className="w-14 h-14 rounded-xl overflow-hidden bg-white/5">
+            <div className="flex items-center gap-4 bg-white border border-black/[0.08] rounded-2xl px-6 py-4 shadow-lg shadow-black/[0.04]">
+              {(selected.image?.src || fallbackImages[selected.id]) && (
+                <div className="w-14 h-14 rounded-xl overflow-hidden bg-black/[0.04]">
                   <img
-                    src={selected.image.src}
+                    src={selected.image?.src || fallbackImages[selected.id]}
                     alt={selected.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
               )}
               <div>
-                <p className="text-xs text-white/40 uppercase tracking-wider mb-1">
+                <p className="text-xs text-neutral-400 uppercase tracking-wider mb-1">
                   Colección seleccionada
                 </p>
-                <h3 className="text-lg font-semibold">
+                <h3 className="text-lg font-semibold text-neutral-900">
                   {formatCollectionName(selected.title)}
                 </h3>
                 {productCounts[selected.id] !== undefined &&
                   productCounts[selected.id] > 0 && (
                     <p className="text-xs text-gold mt-0.5">
-                      {productCounts[selected.id]} productos
+                      {productCounts[selected.id]}{" "}
+                      {productCounts[selected.id] === 1 ? "producto" : "productos"}
                     </p>
                   )}
               </div>
               <button
                 onClick={() => setSelected(null)}
-                className="ml-4 text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+                className="ml-4 text-neutral-300 hover:text-neutral-500 transition-colors cursor-pointer"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -278,8 +292,8 @@ export function CatalogApp() {
               disabled={generating}
               className={`px-10 py-4 rounded-2xl font-medium text-sm tracking-wide transition-all duration-300 ${
                 generating
-                  ? "bg-white/5 text-white/20 cursor-not-allowed"
-                  : "bg-gold text-black hover:bg-gold/90 hover:shadow-lg hover:shadow-gold/20 cursor-pointer active:scale-95"
+                  ? "bg-black/[0.04] text-neutral-300 cursor-not-allowed"
+                  : "bg-gold text-white hover:bg-gold/90 hover:shadow-lg hover:shadow-gold/25 cursor-pointer active:scale-95"
               }`}
             >
               {generating ? (
@@ -293,7 +307,7 @@ export function CatalogApp() {
             </button>
           </>
         ) : (
-          <p className="text-white/30 text-sm">
+          <p className="text-neutral-400 text-sm">
             Selecciona una colección del menú para generar su catálogo
           </p>
         )}
@@ -309,6 +323,7 @@ interface NavItemProps {
   isActive: boolean;
   selected: Collection | null;
   productCounts: Record<number, number>;
+  fallbackImages: Record<number, string>;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onSelect: (col: Collection) => void;
@@ -319,6 +334,7 @@ function NavItem({
   isActive,
   selected,
   productCounts,
+  fallbackImages,
   onMouseEnter,
   onMouseLeave,
   onSelect,
@@ -332,8 +348,8 @@ function NavItem({
       <button
         className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 cursor-pointer whitespace-nowrap ${
           isActive
-            ? "bg-white/10 text-white"
-            : "text-white/60 hover:text-white hover:bg-white/[0.05]"
+            ? "bg-black/[0.06] text-neutral-900"
+            : "text-neutral-500 hover:text-neutral-900 hover:bg-black/[0.03]"
         }`}
       >
         {category.label}
@@ -344,23 +360,34 @@ function NavItem({
         <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 z-50">
           <div className="relative">
             {/* Arrow */}
-            <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-[#1a1a1e] border-l border-t border-white/[0.08] rotate-45" />
+            <div className="absolute -top-[6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-l border-t border-black/[0.08] rotate-45" />
 
-            <div className="bg-[#1a1a1e]/95 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-3 shadow-2xl shadow-black/40 min-w-[280px] max-w-[520px] animate-dropdown">
-              <p className="text-[10px] text-white/30 uppercase tracking-widest px-3 pt-1 pb-2">
+            <div
+              className={`bg-white/95 backdrop-blur-xl border border-black/[0.08] rounded-2xl p-3 shadow-2xl shadow-black/[0.12] animate-dropdown ${
+                category.collections.length > 10
+                  ? "w-[780px]"
+                  : category.collections.length > 6
+                    ? "w-[560px]"
+                    : "w-[300px]"
+              }`}
+            >
+              <p className="text-[10px] text-neutral-400 uppercase tracking-widest px-3 pt-1 pb-2">
                 {category.label}
               </p>
               <div
                 className={`grid gap-1 ${
-                  category.collections.length > 6
-                    ? "grid-cols-2"
-                    : "grid-cols-1"
+                  category.collections.length > 10
+                    ? "grid-cols-3"
+                    : category.collections.length > 6
+                      ? "grid-cols-2"
+                      : "grid-cols-1"
                 }`}
               >
                 {category.collections.map((col) => {
                   const count = productCounts[col.id];
                   const isLoading = count === -1;
                   const isEmpty = count === 0;
+                  const thumbSrc = col.image?.src || fallbackImages[col.id];
 
                   return (
                     <button
@@ -371,14 +398,14 @@ function NavItem({
                           ? "opacity-35 cursor-not-allowed"
                           : selected?.id === col.id
                             ? "bg-gold/10 ring-1 ring-gold/30"
-                            : "hover:bg-white/[0.06] cursor-pointer"
+                            : "hover:bg-black/[0.04] cursor-pointer"
                       }`}
                     >
                       {/* Thumbnail */}
-                      <div className="w-9 h-9 rounded-lg overflow-hidden bg-white/5 shrink-0 flex items-center justify-center">
-                        {col.image?.src ? (
+                      <div className="w-9 h-9 rounded-lg overflow-hidden bg-black/[0.04] shrink-0 flex items-center justify-center">
+                        {thumbSrc ? (
                           <img
-                            src={col.image.src}
+                            src={thumbSrc}
                             alt={col.title}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                           />
@@ -390,7 +417,7 @@ function NavItem({
                             fill="none"
                             stroke="currentColor"
                             strokeWidth="1.5"
-                            className="text-white/20"
+                            className="text-black/20"
                           >
                             <rect x="3" y="3" width="18" height="18" rx="2" />
                             <circle cx="8.5" cy="8.5" r="1.5" />
@@ -400,22 +427,22 @@ function NavItem({
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <span className="text-sm font-medium text-white/90 block truncate">
+                        <span className="text-sm font-medium text-neutral-800 block truncate">
                           {formatCollectionName(col.title)}
                         </span>
                         {isEmpty && (
-                          <span className="text-[10px] text-red-400/70 uppercase tracking-wider">
+                          <span className="text-[10px] text-red-500/70 uppercase tracking-wider whitespace-nowrap">
                             Sin productos
                           </span>
                         )}
                         {isLoading && (
-                          <span className="text-[10px] text-white/20">
+                          <span className="text-[10px] text-neutral-300">
                             ...
                           </span>
                         )}
                         {count !== undefined && count > 0 && (
-                          <span className="text-[10px] text-white/30">
-                            {count} productos
+                          <span className="text-[11px] text-neutral-400 whitespace-nowrap">
+                            {count} {count === 1 ? "producto" : "productos"}
                           </span>
                         )}
                       </div>
